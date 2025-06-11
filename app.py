@@ -8,10 +8,19 @@ import json
 import re
 from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
-from typhoon_ocr import ocr_document
 import PyPDF2
 import pandas as pd
 from datetime import datetime
+import requests
+import base64
+
+# Try to import typhoon-ocr, fallback to API calls
+try:
+    from typhoon_ocr import ocr_document
+    TYPHOON_OCR_AVAILABLE = True
+except ImportError:
+    TYPHOON_OCR_AVAILABLE = False
+    print("Warning: typhoon-ocr package not available, using API calls")
 
 app = Flask(__name__)
 
@@ -392,8 +401,49 @@ def create_excel_file(results, filename):
     
     return excel_path
 
+def ocr_document_api(pdf_path, page_num=1):
+    """Fallback function using direct API calls"""
+    api_key = os.environ.get("TYPHOON_OCR_API_KEY")
+    
+    # Convert PDF page to base64
+    # This is a simplified version - you might need to implement PDF to image conversion
+    try:
+        with open(pdf_path, 'rb') as f:
+            pdf_data = f.read()
+            pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
+        
+        # Make API call to Typhoon OCR
+        url = "https://api.opentyphoon.ai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "typhoon-v1.5x-70b-instruct",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"Extract text from this PDF file (page {page_num}). Return the text in markdown format."
+                }
+            ],
+            "max_tokens": 4000,
+            "temperature": 0.1
+        }
+        
+        response = requests.post(url, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result.get('choices', [{}])[0].get('message', {}).get('content', '')
+        else:
+            raise Exception(f"API call failed: {response.status_code}")
+            
+    except Exception as e:
+        raise Exception(f"OCR processing failed: {str(e)}")
+
 def ocr_pdf_pages(pdf_path, max_pages=None, task_type="default", debug_mode=False):
-    """OCR PDF pages and extract shipping information with debug"""
+    """OCR PDF pages with fallback support"""
     
     # Get total pages
     total_pages = get_pdf_page_count(pdf_path)
@@ -413,11 +463,15 @@ def ocr_pdf_pages(pdf_path, max_pages=None, task_type="default", debug_mode=Fals
         print(f"Processing page {page_num}/{pages_to_process}...")
         
         try:
-            markdown = ocr_document(
-                pdf_or_image_path=pdf_path,
-                task_type=task_type,
-                page_num=page_num
-            )
+            # Try typhoon-ocr package first, fallback to API
+            if TYPHOON_OCR_AVAILABLE:
+                markdown = ocr_document(
+                    pdf_or_image_path=pdf_path,
+                    task_type=task_type,
+                    page_num=page_num
+                )
+            else:
+                markdown = ocr_document_api(pdf_path, page_num)
             
             # Extract shipping info - FIXED: Choose function based on debug mode
             if debug_mode:

@@ -26,8 +26,12 @@ if not api_key:
 
 os.environ["TYPHOON_OCR_API_KEY"] = api_key
 
-# Configuration - Use /tmp for Railway deployment
-if os.environ.get('RAILWAY_ENVIRONMENT'):
+# Configuration - Detect platform and set folders
+IS_RENDER = os.environ.get('RENDER') is not None
+IS_RAILWAY = os.environ.get('RAILWAY_ENVIRONMENT') is not None
+IS_PRODUCTION = IS_RENDER or IS_RAILWAY or os.environ.get('FLASK_ENV') == 'production'
+
+if IS_PRODUCTION:
     UPLOAD_FOLDER = '/tmp/uploads'
     RESULTS_FOLDER = '/tmp/results'
     DEBUG_FOLDER = '/tmp/debug'
@@ -545,17 +549,19 @@ def download_file(filename):
 def download_debug_file(filename):
     return send_file(os.path.join(DEBUG_FOLDER, filename), as_attachment=True)
 
-# Add health check endpoint for Railway
+# Add health check endpoint for deployment platforms
 @app.route('/health')
 def health_check():
     return jsonify({
         "status": "healthy", 
         "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "platform": "render" if IS_RENDER else "railway" if IS_RAILWAY else "local",
+        "environment": "production" if IS_PRODUCTION else "development"
     })
 
 if __name__ == '__main__':
     # Production settings
     port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('FLASK_ENV') == 'development'
+    debug = not IS_PRODUCTION
     app.run(host='0.0.0.0', port=port, debug=debug)

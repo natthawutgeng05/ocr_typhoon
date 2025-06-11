@@ -8,13 +8,16 @@ import json
 import re
 from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
-from openai import OpenAI
 from typhoon_ocr import ocr_document
 import PyPDF2
 import pandas as pd
 from datetime import datetime
 
 app = Flask(__name__)
+
+# Production configuration
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this')
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 
 # Get API key from environment variable - SECURE
 api_key = os.environ.get("TYPHOON_OCR_API_KEY")
@@ -23,10 +26,16 @@ if not api_key:
 
 os.environ["TYPHOON_OCR_API_KEY"] = api_key
 
-# Configuration
-UPLOAD_FOLDER = 'uploads'
-RESULTS_FOLDER = 'results'
-DEBUG_FOLDER = 'debug'
+# Configuration - Use /tmp for Railway deployment
+if os.environ.get('RAILWAY_ENVIRONMENT'):
+    UPLOAD_FOLDER = '/tmp/uploads'
+    RESULTS_FOLDER = '/tmp/results'
+    DEBUG_FOLDER = '/tmp/debug'
+else:
+    UPLOAD_FOLDER = 'uploads'
+    RESULTS_FOLDER = 'results'
+    DEBUG_FOLDER = 'debug'
+
 ALLOWED_EXTENSIONS = {'pdf'}
 
 # Create directories if they don't exist
@@ -536,5 +545,17 @@ def download_file(filename):
 def download_debug_file(filename):
     return send_file(os.path.join(DEBUG_FOLDER, filename), as_attachment=True)
 
+# Add health check endpoint for Railway
+@app.route('/health')
+def health_check():
+    return jsonify({
+        "status": "healthy", 
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0"
+    })
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Production settings
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    app.run(host='0.0.0.0', port=port, debug=debug)

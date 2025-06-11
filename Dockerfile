@@ -30,12 +30,8 @@ RUN mkdir -p uploads results debug templates
 ENV PYTHONPATH=/app
 ENV FLASK_APP=app.py
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:$PORT/health || exit 1
-
 # Expose port
-EXPOSE $PORT
+EXPOSE 8080
 
-# Use exec form for better signal handling
-CMD ["sh", "-c", "python -m gunicorn --bind 0.0.0.0:$PORT app:app --timeout 300 --workers 1 --preload"]
+# Use Python starter script
+CMD ["python", "start.py"]

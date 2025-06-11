@@ -3,8 +3,10 @@
         "builder": "DOCKERFILE"
     },
     "deploy": {
-        "startCommand": "python -m gunicorn --bind 0.0.0.0:$PORT app:app --timeout 300 --workers 1 --log-level info",
+        "startCommand": "python start.py",
         "healthcheckPath": "/health",
-        "healthcheckTimeout": 30
+        "healthcheckTimeout": 60,
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 3
     }
 }

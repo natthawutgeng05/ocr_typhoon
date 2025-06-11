@@ -224,16 +224,53 @@ def index():
     logger.info("Index page accessed")
     return render_template('index.html')
 
+# Add this near the top after app creation
+@app.before_first_request
+def startup_info():
+    port = os.environ.get('PORT', 'NOT_SET')
+    logger.info(f"=== APPLICATION STARTUP ===")
+    logger.info(f"PORT environment variable: {port}")
+    logger.info(f"Current working directory: {os.getcwd()}")
+    logger.info(f"Python version: {sys.version}")
+    logger.info(f"Flask app: {app}")
+    logger.info(f"App config: {dict(app.config)}")
+
+# Enhance health check
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Railway"""
-    logger.info("Health check requested")
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0",
-        "environment": "production" if IS_PRODUCTION else "development"
-    })
+    """Enhanced health check endpoint"""
+    try:
+        port = os.environ.get('PORT', 'NOT_SET')
+        logger.info(f"Health check requested - PORT: {port}")
+        
+        health_data = {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "version": "1.0.0",
+            "environment": "production" if IS_PRODUCTION else "development",
+            "port": port,
+            "pid": os.getpid(),
+            "directories": {
+                "upload": UPLOAD_FOLDER,
+                "results": RESULTS_FOLDER,
+                "debug": DEBUG_FOLDER
+            }
+        }
+        
+        # Test directory access
+        for name, path in health_data["directories"].items():
+            health_data[f"{name}_exists"] = os.path.exists(path)
+            health_data[f"{name}_writable"] = os.access(path, os.W_OK)
+        
+        return jsonify(health_data)
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -324,5 +361,7 @@ def internal_error(error):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
+    logger.info(f"=== DIRECT RUN ===")
     logger.info(f"Starting application on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    logger.info(f"Debug mode: {not IS_PRODUCTION}")
+    app.run(host='0.0.0.0', port=port, debug=not IS_PRODUCTION)

@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF OCR Shipping Info Extractor</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .upload-area {
+        border: 2px dashed #ddd;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        margin-bottom: 20px;
+        transition: border-color 0.3s;
+      }
+      .upload-area:hover {
+        border-color: #007bff;
+      }
+      .upload-area.dragover {
+        border-color: #007bff;
+        background-color: #f8f9fa;
+      }
+      input[type="file"] {
+        display: none;
+      }
+      .upload-btn {
+        background: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 10px;
+      }
+      .upload-btn:hover {
+        background: #0056b3;
+      }
+      .settings {
+        margin: 20px 0;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 5px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input[type="number"] {
+        width: 100px;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .checkbox-group {
+        margin: 15px 0;
+      }
+      .checkbox-group input[type="checkbox"] {
+        margin-right: 8px;
+      }
+      .debug-info {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        padding: 10px;
+        border-radius: 4px;
+        margin-top: 10px;
+        font-size: 14px;
+      }
+      .process-btn {
+        background: #28a745;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .process-btn:hover {
+        background: #218838;
+      }
+      .process-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+      }
+      .loading {
+        display: none;
+        text-align: center;
+        margin: 20px 0;
+      }
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .results {
+        margin-top: 30px;
+        display: none;
+      }
+      .order-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background: white;
+      }
+      .order-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+      }
+      .page-number {
+        background: #007bff;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 12px;
+      }
+      .order-id {
+        font-weight: bold;
+        color: #28a745;
+      }
+      .address-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 15px;
+      }
+      .address-raw,
+      .address-parsed {
+        padding: 15px;
+        border-radius: 5px;
+      }
+      .address-raw {
+        background: #f8f9fa;
+      }
+      .address-parsed {
+        background: #e8f5e9;
+      }
+      .download-section {
+        background: #f0f8ff;
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+        text-align: center;
+      }
+      .download-btn {
+        color: white;
+        padding: 12px 25px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        margin: 5px 10px;
+        font-weight: bold;
+        transition: background-color 0.3s;
+      }
+      .download-excel {
+        background: #198754;
+      }
+      .download-excel:hover {
+        background: #157347;
+      }
+      .download-json {
+        background: #17a2b8;
+      }
+      .download-json:hover {
+        background: #138496;
+      }
+      .download-debug {
+        background: #fd7e14;
+      }
+      .download-debug:hover {
+        background: #e55a00;
+      }
+      .debug-summary {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .error {
+        color: #dc3545;
+        background: #f8d7da;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      @media (max-width: 768px) {
+        .address-section {
+          grid-template-columns: 1fr;
+        }
+        .download-btn {
+          display: block;
+          margin: 10px 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📄 PDF OCR Shipping Info Extractor</h1>
+
+      <div class="upload-area" id="uploadArea">
+        <p>🗂️ ลากไฟล์ PDF มาวางที่นี่ หรือ คลิกเพื่อเลือกไฟล์</p>
+        <input type="file" id="fileInput" accept=".pdf" />
+        <button
+          class="upload-btn"
+          onclick="document.getElementById('fileInput').click()"
+        >
+          เลือกไฟล์ PDF
+        </button>
+        <p id="fileName" style="margin-top: 10px; color: #666"></p>
+      </div>
+
+      <div class="settings">
+        <div class="form-group">
+          <label for="maxPages"
+            >จำนวนหน้าที่ต้องการประมวลผล (เว้นว่างเพื่อประมวลผลทุกหน้า):</label
+          >
+          <input type="number" id="maxPages" min="1" placeholder="เช่น 10" />
+          <small style="color: #666; display: block; margin-top: 5px">
+            เพื่อประหยัดเวลาและค่าใช้จ่าย แนะนำให้ทดสอบกับหน้าน้อยๆ ก่อน
+          </small>
+        </div>
+
+        <div class="checkbox-group">
+          <label>
+            <input type="checkbox" id="debugMode" />
+            เปิดโหมด Debug (แสดงข้อมูลการประมวลผลแบบละเอียด)
+          </label>
+          <div class="debug-info" style="display: none" id="debugInfo">
+            🔍 โหมด Debug จะสร้างไฟล์เพิ่มเติมที่แสดง:
+            <ul>
+              <li>ข้อความดิบที่ OCR อ่านได้จากแต่ละหน้า</li>
+              <li>รายละเอียดการค้นหาข้อมูล (Pattern matching)</li>
+              <li>สาเหตุที่บางหน้าอาจไม่พบข้อมูล</li>
+              <li>การแยกที่อยู่และการประมวลผล</li>
+            </ul>
+          </div>
+        </div>
+
+        <button
+          class="process-btn"
+          id="processBtn"
+          onclick="processFile()"
+          disabled
+        >
+          🚀 เริ่มประมวลผล
+        </button>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>กำลังประมวลผล PDF...</p>
+      </div>
+
+      <div class="results" id="results"></div>
+    </div>
+
+    <script>
+      let selectedFile = null;
+
+      // Debug mode toggle
+      document
+        .getElementById("debugMode")
+        .addEventListener("change", function (e) {
+          const debugInfo = document.getElementById("debugInfo");
+          debugInfo.style.display = e.target.checked ? "block" : "none";
+        });
+
+      // File input handling
+      document
+        .getElementById("fileInput")
+        .addEventListener("change", function (e) {
+          selectedFile = e.target.files[0];
+          if (selectedFile) {
+            document.getElementById(
+              "fileName"
+            ).textContent = `เลือกไฟล์: ${selectedFile.name}`;
+            document.getElementById("processBtn").disabled = false;
+          }
+        });
+
+      // Drag and drop handling
+      const uploadArea = document.getElementById("uploadArea");
+
+      uploadArea.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        uploadArea.classList.add("dragover");
+      });
+
+      uploadArea.addEventListener("dragleave", function (e) {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+      });
+
+      uploadArea.addEventListener("drop", function (e) {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0 && files[0].type === "application/pdf") {
+          selectedFile = files[0];
+          document.getElementById(
+            "fileName"
+          ).textContent = `เลือกไฟล์: ${selectedFile.name}`;
+          document.getElementById("processBtn").disabled = false;
+        }
+      });
+
+      function processFile() {
+        if (!selectedFile) return;
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        const maxPages = document.getElementById("maxPages").value;
+        if (maxPages) {
+          formData.append("max_pages", maxPages);
+        }
+
+        const debugMode = document.getElementById("debugMode").checked;
+        formData.append("debug_mode", debugMode);
+
+        // Show loading
+        document.getElementById("loading").style.display = "block";
+        document.getElementById("results").style.display = "none";
+        document.getElementById("processBtn").disabled = true;
+
+        fetch("/upload", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("processBtn").disabled = false;
+
+            if (data.success) {
+              displayResults(data.results, data.download_urls, data.debug_mode);
+            } else {
+              showError(data.error || "เกิดข้อผิดพลาดในการประมวลผล");
+            }
+          })
+          .catch((error) => {
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("processBtn").disabled = false;
+            showError("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + error.message);
+          });
+      }
+
+      function displayResults(results, downloadUrls, debugMode) {
+        const resultsDiv = document.getElementById("results");
+
+        let html = `
+                <h2>📋 ผลลัพธ์การประมวลผล</h2>
+                <div style="background: #e8f5e9; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                    <strong>📄 ไฟล์:</strong> ${results.document}<br>
+                    <strong>📖 จำนวนหน้าทั้งหมด:</strong> ${results.total_pages}<br>
+                    <strong>⚡ ประมวลผลแล้ว:</strong> ${results.processed_pages} หน้า<br>
+                    <strong>📦 พบข้อมูลคำสั่งซื้อ:</strong> ${results.extracted_orders.length} รายการ
+                </div>
+            `;
+
+        // Add debug summary if debug mode is enabled
+        if (debugMode && results.debug_pages) {
+          const pagesWithData = results.debug_pages.filter(
+            (p) => p.has_data
+          ).length;
+          const pagesWithoutData = results.debug_pages.filter(
+            (p) => !p.has_data
+          ).length;
+
+          html += `
+                    <div class="debug-summary">
+                        <h3>🔍 ข้อมูล Debug</h3>
+                        <strong>📊 หน้าที่พบข้อมูล:</strong> ${pagesWithData} หน้า<br>
+                        <strong>📊 หน้าที่ไม่พบข้อมูล:</strong> ${pagesWithoutData} หน้า<br>
+                        <strong>📝 ไฟล์ Debug:</strong> มีรายละเอียดข้อความดิบและการวิเคราะห์
+                    </div>
+                `;
+        }
+
+        html += `
+                <div class="download-section">
+                    <h3>💾 ดาวน์โหลดผลลัพธ์</h3>
+                    <p>เลือกรูปแบบไฟล์ที่ต้องการ:</p>
+                    <a href="${downloadUrls.excel}" class="download-btn download-excel">
+                        📊 ดาวน์โหลด Excel (.xlsx)
+                    </a>
+                    <a href="${downloadUrls.json}" class="download-btn download-json">
+                        📋 ดาวน์โหลด JSON (.json)
+                    </a>
+            `;
+
+        if (debugMode && downloadUrls.debug) {
+          html += `
+                    <a href="${downloadUrls.debug}" class="download-btn download-debug">
+                        🔍 ดาวน์โหลด Debug (.json)
+                    </a>
+                `;
+        }
+
+        html += `
+                    <p style="margin-top: 15px; color: #666; font-size: 14px;">
+                        <strong>แนะนำ:</strong> ไฟล์ Excel สำหรับการใช้งานทั่วไป | ไฟล์ JSON สำหรับนักพัฒนา
+                        ${debugMode ? " | ไฟล์ Debug สำหรับการแก้ปัญหา" : ""}
+                    </p>
+                </div>
+            `;
+
+        results.extracted_orders.forEach((order) => {
+          html += `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <span class="page-number">หน้า ${order.page}</span>
+                            <span class="order-id">Order ID: ${
+                              order.order_id || "ไม่พบ"
+                            }</span>
+                        </div>
+                        
+                        <div><strong>👤 ชื่อผู้รับ:</strong> ${
+                          order.recipient_name
+                        }</div>
+                        <div><strong>📅 วันที่จัดส่ง:</strong> ${
+                          order.shipping_date
+                        }</div>
+                        
+                        <div class="address-section">
+                            <div class="address-raw">
+                                <strong>📍 ที่อยู่เดิม:</strong><br>
+                                ${order.recipient_address}
+                            </div>
+                            <div class="address-parsed">
+                                <strong>📍 ที่อยู่ที่แยกแล้ว:</strong><br>
+                                <strong>ที่อยู่:</strong> ${
+                                  order.parsed_address.street_address || "-"
+                                }<br>
+                                <strong>อำเภอ:</strong> ${
+                                  order.parsed_address.district || "-"
+                                }<br>
+                                <strong>จังหวัด:</strong> ${
+                                  order.parsed_address.province || "-"
+                                }<br>
+                                <strong>รหัสไปรษณีย์:</strong> ${
+                                  order.parsed_address.postal_code || "-"
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+        });
+
+        resultsDiv.innerHTML = html;
+        resultsDiv.style.display = "block";
+      }
+
+      function showError(message) {
+        const resultsDiv = document.getElementById("results");
+        resultsDiv.innerHTML = `<div class="error">❌ ${message}</div>`;
+        resultsDiv.style.display = "block";
+      }
+    </script>
+  </body>
+</html>

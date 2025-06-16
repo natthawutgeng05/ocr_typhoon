@@ -2,7 +2,7 @@ from openai import OpenAI
 
 # Initialize the client with your API key and the OpenTyphoon base URL
 client = OpenAI(
-    api_key="sk-6wAULZZYCQTVHb5GW4XBcYznTStuxDJAdSBeHLH4mFsSfL42",
+    api_key="apikey",
     base_url="https://api.opentyphoon.ai/v1"
 )
 
